@@ -2,10 +2,11 @@ import json
 
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import PandasUDFType, collect_list, lit, pandas_udf, window
+from pyspark.sql.functions import PandasUDFType, pandas_udf, window
 from pyspark.sql.types import StringType, StructField, StructType
 
 from src.models.application_config import ApplicationConfig, Config
+from src.sink.writer import Writer
 from src.utils.parser import Parser
 
 
@@ -46,28 +47,21 @@ def main():
             df.value = df.value.str.replace("RT:", "")
             return df
 
-        def enrich_batch(batch_df):
-
-            df = batch_df.agg(collect_list("value"))
-            df = df.withColumn("total_case_count", lit(123)).withColumnRenamed(
-                "collect_list(value)", "content"
-            )
-
-            df.write.format("mongodb").option("spark.mongodb.database", "fruits").option(
-                "spark.mongodb.collection", "apples"
-            ).option("checkpointLocation", "./checkpoint/").mode("append").save()
-
         batch = batch.groupBy(window(batch.timestamp, "20 seconds")).applyInPandas(
             normalize, schema="value string, timestamp timestamp"
         )
 
-        query = (
-            batch.writeStream.trigger(processingTime="20 seconds")
-            .outputMode("append")
-            .foreachBatch(lambda batch_df, batch_id: enrich_batch(batch_df))
-            .start()
-        )
+        writer = Writer(application_config.sink_config)
+        query = writer.process(batch)
         query.awaitTermination()
+        # query = (
+        #     batch.writeStream.trigger(processingTime="20 seconds")
+        #     .outputMode("append")
+        #     .foreachBatch(lambda batch_df, batch_id: enrich_batch(batch_df))
+        #     .start()
+        # )
+        # processor()
+        # query.awaitTermination()
 
     except Exception as exc:
         if spark_logger is not None:

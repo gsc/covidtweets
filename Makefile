@@ -39,7 +39,7 @@ run-local:
 	${SPARK_HOME}/bin/spark-submit \
 	--master "local[*]" \
 	--conf spark.sql.adaptive.logLevel="info" \
-	run.py --config-file-name=${config-file-name}  > my.log
+	run.py --config-file-name=${config-file-name}
 
 .PHONY: stream-simulation
 stream-simulation:
