@@ -2,13 +2,11 @@ import json
 
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import PandasUDFType, pandas_udf, window
-from pyspark.sql.types import StringType, StructField, StructType
 
 from src.models.application_config import ApplicationConfig, Config
 from src.scraper import Scraper
 from src.sink.writer import Writer
-from src.source.cleanup_tweets import cleanup_tweets
+from src.source.stream_reader import StreamReader
 from src.utils.parser import Parser
 
 
@@ -30,20 +28,8 @@ def main():
         log4j = spark_session._jvm.org.apache.log4j
         spark_logger = log4j.LogManager.getLogger(application_config.spark_config.app_name)
 
-        tweets_df = (
-            spark_session.readStream.format("socket")
-            .option("host", application_config.base_config.server)
-            .option("port", application_config.base_config.port)
-            .option("includeTimestamp", "true")
-            .load()
-        )
-
-        cleaned_tweets_df = tweets_df.groupBy(
-            window(
-                tweets_df.timestamp,
-                f"{application_config.sink_config.processing_time_seconds} seconds",
-            )
-        ).applyInPandas(cleanup_tweets, schema="value string, timestamp timestamp")
+        stream_reader = StreamReader(application_config.source_config, spark_session)
+        cleaned_tweets_df = stream_reader.load()
 
         scraper = Scraper(application_config.scraper_config, spark_logger)
         writer = Writer(application_config.sink_config, scraper, spark_logger)

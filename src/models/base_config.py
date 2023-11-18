@@ -5,5 +5,3 @@ from dataclasses import dataclass
 class BaseConfig:
     environment: str
     log_level: str
-    server: str
-    port: int
