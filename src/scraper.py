@@ -16,10 +16,15 @@ class Scraper:
     def get_covid_cases(self) -> int:
         response = requests.get(self.url)
         if response.status_code == 200:
-            soup = BeautifulSoup(response.content, "html.parser")
-            total_cases_element = soup.find("div", {"class": "maincounter-number"})
-            num = total_cases_element.span.text.strip().replace(",", "")
-            return int(num)
+            try:
+                soup = BeautifulSoup(response.content, "html.parser")
+                total_cases_element = soup.find("div", {"class": "maincounter-number"})
+                num = total_cases_element.span.text.strip().replace(",", "")
+                return int(num)
+            except Exception as ex:
+                raise ScraperError(
+                    "Couldn't find the number of covid cases in the page retrieved. Perhaps the site has changed?"
+                )
         else:
             raise ScraperError(
                 f"Didn't managed to retrieve the number of covid cases. Response code {response.status_code}"

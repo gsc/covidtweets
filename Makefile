@@ -26,6 +26,10 @@ install-linter:
 linter:
 	poetry run pre-commit run --all-files
 
+.PHONY: tests
+tests:
+	poetry run python -m pytest tests/${tests_path}/ --cov-config=tests/${cov_type}/.coveragerc --cov=. --quiet $(test_argument)
+
 .PHONY: run-spark-shell
 run-spark-shell:
 	${SPARK_HOME}/bin/pyspark \
