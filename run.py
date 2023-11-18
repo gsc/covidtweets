@@ -30,7 +30,7 @@ def main():
         log4j = spark_session._jvm.org.apache.log4j
         spark_logger = log4j.LogManager.getLogger(application_config.spark_config.app_name)
 
-        lines = (
+        tweets_df = (
             spark_session.readStream.format("socket")
             .option("host", application_config.base_config.server)
             .option("port", application_config.base_config.port)
@@ -38,16 +38,17 @@ def main():
             .load()
         )
 
-        batch = lines.withWatermark("timestamp", "5 minutes")
-
-        batch = batch.groupBy(
+        cleaned_tweets_df = tweets_df.groupBy(
             window(
-                batch.timestamp, f"{application_config.sink_config.processing_time_seconds} seconds"
+                tweets_df.timestamp,
+                f"{application_config.sink_config.processing_time_seconds} seconds",
             )
         ).applyInPandas(cleanup_tweets, schema="value string, timestamp timestamp")
+
         scraper = Scraper(application_config.scraper_config, spark_logger)
         writer = Writer(application_config.sink_config, scraper, spark_logger)
-        query = writer.process(batch)
+
+        query = writer.process(cleaned_tweets_df)
         query.awaitTermination()
 
     except Exception as exc:
