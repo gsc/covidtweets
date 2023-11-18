@@ -6,7 +6,9 @@ from pyspark.sql.functions import PandasUDFType, pandas_udf, window
 from pyspark.sql.types import StringType, StructField, StructType
 
 from src.models.application_config import ApplicationConfig, Config
+from src.scraper import Scraper
 from src.sink.writer import Writer
+from src.source.cleanup_tweets import cleanup_tweets
 from src.utils.parser import Parser
 
 
@@ -27,7 +29,6 @@ def main():
         spark_session.sparkContext.setLogLevel(application_config.base_config.log_level)
         log4j = spark_session._jvm.org.apache.log4j
         spark_logger = log4j.LogManager.getLogger(application_config.spark_config.app_name)
-        spark_logger.info("Main")
 
         lines = (
             spark_session.readStream.format("socket")
@@ -39,29 +40,15 @@ def main():
 
         batch = lines.withWatermark("timestamp", "5 minutes")
 
-        def normalize(df):
-            url_regexp = "https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)"
-
-            df.value = df.value.str.replace(url_regexp, "", regex=True)
-            df.value = df.value.str.replace("#", "")
-            df.value = df.value.str.replace("RT:", "")
-            return df
-
-        batch = batch.groupBy(window(batch.timestamp, "20 seconds")).applyInPandas(
-            normalize, schema="value string, timestamp timestamp"
-        )
-
-        writer = Writer(application_config.sink_config)
+        batch = batch.groupBy(
+            window(
+                batch.timestamp, f"{application_config.sink_config.processing_time_seconds} seconds"
+            )
+        ).applyInPandas(cleanup_tweets, schema="value string, timestamp timestamp")
+        scraper = Scraper(application_config.scraper_config, spark_logger)
+        writer = Writer(application_config.sink_config, scraper, spark_logger)
         query = writer.process(batch)
         query.awaitTermination()
-        # query = (
-        #     batch.writeStream.trigger(processingTime="20 seconds")
-        #     .outputMode("append")
-        #     .foreachBatch(lambda batch_df, batch_id: enrich_batch(batch_df))
-        #     .start()
-        # )
-        # processor()
-        # query.awaitTermination()
 
     except Exception as exc:
         if spark_logger is not None:

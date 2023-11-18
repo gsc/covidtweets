@@ -9,8 +9,9 @@ class ScraperError(Exception):
 
 
 class Scraper:
-    def __init__(self, scraper_config: ScraperConfig):
+    def __init__(self, scraper_config: ScraperConfig, spark_logger):
         self.url = scraper_config.url
+        self.spark_logger = spark_logger
 
     def get_covid_cases(self) -> int:
         response = requests.get(self.url)
