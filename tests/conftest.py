@@ -1,5 +1,18 @@
+from typing import Generator
+from unittest.mock import MagicMock, patch
+
 import pytest
 from pandas import DataFrame
+from requests import Response
+
+from src.models.scraper_config import ScraperConfig
+
+SCRAPER_PATH = "src.scraper"
+
+
+@pytest.fixture(scope="session")
+def scraper_config_instance() -> Generator[ScraperConfig, None, None]:
+    yield ScraperConfig(url="http://localhost")
 
 
 @pytest.fixture(scope="session")
@@ -34,3 +47,33 @@ def clean_tweets_df() -> DataFrame:
             }
         }
     )
+
+
+@pytest.fixture(scope="function")
+def mocked_requests_get_content() -> Generator[MagicMock, None, None]:
+    with patch(f"{SCRAPER_PATH}.requests.get") as mocked_get:
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = b"<div> a random text sequence </div>"
+        mocked_get.return_value = mock_response
+        yield mocked_get
+
+
+@pytest.fixture(scope="function")
+def mocked_requests_get() -> Generator[MagicMock, None, None]:
+    with patch(f"{SCRAPER_PATH}.requests.get") as mocked_get:
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = b"<div class='maincounter-number'><span> 545 </span></div>"
+        mocked_get.return_value = mock_response
+        yield mocked_get
+
+
+@pytest.fixture(scope="function")
+def mocked_requests_get_invalid_response() -> Generator[MagicMock, None, None]:
+    with patch(f"{SCRAPER_PATH}.requests.get") as mocked_get:
+        mock_response = Response()
+        mock_response.status_code = 400
+        mock_response._content = b"<div><span> a random text sequence </span></div>"
+        mocked_get.return_value = mock_response
+        yield mocked_get
