@@ -16,9 +16,9 @@ provided by the scraper and writes the resulting dataframe to Mongo as
 a doc.
 
 There's a basic run.py file that serves as the entrypoint for app:
-	- Reads the configuration
-	- Sets up spark logger and session objects
-	- Creates the different app components and defines the workflow for the streaming process.
+- Reads the configuration
+- Sets up spark logger and session objects
+- Creates the different app components and defines the workflow for the streaming process.
 
 #### Configuration
 
